@@ -1,4 +1,5 @@
 import sys
+import time
 import os
 from enum import Enum
 import bs4 as bs
@@ -11,45 +12,66 @@ class Position(Enum):
     RB = 2
     WR = 3
     TE = 4
+    WRRB_FLEX = 5
     K = 7
     DEF = 8
 
 
-def get_players(pos):
-    site = requests.get('http://fantasy.nfl.com/research/projections#researchProjections=researchProjections%2C%2Fresearch%2Fprojections%253Fposition%253D' + str(Position[pos].value) + '%2526statCategory%253DprojectedStats%2526statSeason%253D2018%2526statType%253DseasonProjectedStats%2526statWeek%253D1%2Creplace').text
-    file_tmp = ('tmp_' + Position[pos].name + '.txt')
-    with open (file_tmp, 'w') as tmp:
-        tmp.write(site)  
-    with open(file_tmp, 'r') as url:
-        soup = bs.BeautifulSoup(url.read(), 'lxml')
-    soup_body = soup.body
-    soup_body_doc = soup_body.find(lambda tag: tag.name == 'div' and tag.has_attr('id') and tag['id'] == 'doc')
-    soup_body_doc_bdWrap = soup_body_doc.find(lambda tag: tag.name == 'div' and tag.has_attr('id') and tag['id'] == 'bd-wrap')
-    soup_body_doc_bdWrap_bd = soup_body_doc_bdWrap.find(lambda tag: tag.name == 'div' and tag.has_attr('id') and tag['id'] == 'bd')
-    soup_body_doc_bdWrap_bd_primary = soup_body_doc_bdWrap_bd.find(lambda tag: tag.name == 'div' and tag.has_attr('id') and tag['id'] == 'primary')
-    soup_body_doc_bdWrap_bd_primary_primaryContent = soup_body_doc_bdWrap_bd_primary.find(lambda tag: tag.name == 'div' and tag.has_attr('id') and tag['id'] == 'primaryContent')
-    soup_body_doc_bdWrap_bd_primary_primaryContent_researchScoringLeaders = soup_body_doc_bdWrap_bd_primary_primaryContent.find(lambda tag: tag.name == 'div' and tag.has_attr('id') and tag['id'] == 'researchScoringLeaders')
-    soup_body_doc_bdWrap_bd_primary_primaryContent_researchScoringLeaders_content = soup_body_doc_bdWrap_bd_primary_primaryContent_researchScoringLeaders.find(lambda tag: tag.name == 'div' and tag.has_attr('class') and tag['class'] == 'content')
-    soup_body_doc_bdWrap_bd_primary_primaryContent_researchScoringLeaders_content_bd = soup_body_doc_bdWrap_bd_primary_primaryContent_researchScoringLeaders_content.find(lambda tag: tag.name == 'div' and tag.has_attr('class') and tag['class'] == 'bd')
-    soup_body_doc_bdWrap_bd_primary_primaryContent_researchScoringLeaders_content_bd_tableWrap = soup_body_doc_bdWrap_bd_primary_primaryContent_researchScoringLeaders_content_bd.find(lambda tag: tag.name == 'div' and tag.has_attr('class') and tag['class'] == 'tableWrap')
-    table_players = soup_body_doc_bdWrap_bd_primary_primaryContent_researchScoringLeaders_content_bd_tableWrap.find(lambda tag: tag.name == 'table' and tag.has_attr('class') and tag['class'] == 'tableType-player hasGroups')
-    table_players_head = table_players.find(lambda tag: tag.name == 'thead')
-    table_players_header = { 'upperhead': table_players_head.find(lambda tag: tag.name == 'thead' and tag.has_attr('class') and tag['class'] == 'first'), \
-                                'lowerhead': table_players_head.find(lambda tag: tag.name == 'thead' and tag.has_attr('class') and tag['class'] == 'last') }
-    print('\n'.join(table_players_header))
+def get_bs_tag_by_ID(parent_tag, type, id):
+    return parent_tag.find(lambda tag: tag.name == type and tag.has_attr('id') and tag['id'] == id)
 
 
+def get_bs_tag_by_class(parent_tag, type, classname):
+    return parent_tag.find(lambda tag: tag.name == type and tag.has_attr('class') and tag['class'] == classname)
 
-def get_input_position():
-    usr_input = ''
-    while usr_input.upper() not in [entry.name for entry in Position]:
-        usr_input = input('Which position(s)?[QB, RB, WR, TE, K, DEF, ALL]\n')
-    return str(usr_input).upper()
+
+def get_players(pos, offset, year):
+    if offset < 1:
+        offset = 1
+
+        if Position[pos].value == 0:
+            site = requests.get('http://fantasy.nfl.com/draftcenter/breakdown?leagueId=#draftCenterBreakdown=draftCenterBreakdown%2C%2Fdraftcenter%2Fbreakdown%253FleagueId%253D%2526offset%253D' + str(offset) + '%2526position%253Dall%2526season%253D' + year + '%2526sort%253DdraftAveragePosition%2Creplace').text
+        # elseif offset:
+        #     site = requests.get('http://fantasy.nfl.com/draftcenter/breakdown?leagueId=#draftCenterBreakdown=draftCenterBreakdown%2C%2Fdraftcenter%2Fbreakdown%253FleagueId%253D%2526offset%253D' + str(offset) + '%2526position%253D' + str(Position[pos].value) + '%2526season%253D' + year + '%2526sort%253DdraftAveragePosition%2Creplace').text
+        file_tmp = ('AverageDraftPositions/adp_' + Position[pos].name + '.txt')
+        
+        common(soup)
+        common.soup['body_doc_bdWrap_bd_primary_primaryContent_draftCenterBreakdown_content_bd'] = get_bs_tag_by_class(common.soup['body_doc_bdWrap_bd_primary_primaryContent_draftCenterBreakdown_content'], 'div', 'bd')
+        common.soup['body_doc_bdWrap_bd_primary_primaryContent_draftCenterBreakdown_content_bd_tableWrap'] = get_bs_tag_by_class(common.soup['body_doc_bdWrap_bd_primary_primaryContent_draftCenterBreakdown_content_bd'], 'div', 'tableWrap')
+        main.table_players[str(year)] = get_bs_tag_by_class(common.soup['body_doc_bdWrap_bd_primary_primaryContent_draftCenterBreakdown_content_bd_tableWrap'], 'table', 'tableType-Players hasGroups')
+
+
+def common(soup):
+    common.soup['body'] = main.soup.body
+    common.soup['body_doc'] = get_bs_tag_by_ID(common.soup['body'], 'div', 'doc')
+    common.soup['body_doc_bdWrap'] = get_bs_tag_by_ID(common.soup['body_doc'], 'div', 'bd-wrap')
+    common.soup['body_doc_bdWrap_bd'] = get_bs_tag_by_ID(common.soup['body_doc_bdWrap'], 'div', 'bd')
+    common.soup['body_doc_bdWrap_bd_primary'] = get_bs_tag_by_ID(common.soup['body_doc_bdWrap_bd'], 'div', 'primary')
+    common.soup['body_doc_bdWrap_bd_primary_primaryContent'] = get_bs_tag_by_ID(soup['body_doc_bdWrap_bd_primary'], 'div', 'primaryContent')
+    common.soup['body_doc_bdWrap_bd_primary_primaryContent_draftCenterBreakdown'] = get_bs_tag_by_ID(common.soup['body_doc_bdWrap_bd_primary_primaryContent'], 'div', 'draftCenterBreakdown')
+    common.soup['body_doc_bdWrap_bd_primary_primaryContent_draftCenterBreakdown_content'] = get_bs_tag_by_ID(common.soup['body_doc_bdWrap_bd_primary_primaryContent_draftCenterBreakdown'], 'div', 'content')
+
+
+def count_position_depths(url):
+    for str_pos in Position:
+        common.soup['body_doc_bdWrap_bd_primary_primaryContent_draftCenterBreakdown_content_hd'] = get_bs_tag_by_class(common.soup['body_doc_bdWrap_bd_primary_primaryContent_draftCenterBreakdown_content'], 'div', 'hd')
+        common.soup['body_doc_bdWrap_bd_primary_primaryContent_draftCenterBreakdown_content_hd_paginationWrap'] = get_bs_tag_by_class(common.soup['body_doc_bdWrap_bd_primary_primaryContent_draftCenterBreakdown_content_hd'], 'div', 'paginationWrap')
+        common.soup['body_doc_bdWrap_bd_primary_primaryContent_draftCenterBreakdown_content_hd_paginationWrap_paginationSearch'] = get_bs_tag_by_class(common.soup['body_doc_bdWrap_bd_primary_primaryContent_draftCenterBreakdown_content_hd_paginationWrap'], 'div', 'pagination search')
+        common.soup['body_doc_bdWrap_bd_primary_primaryContent_draftCenterBreakdown_content_hd_paginationWrap_paginationSearch_paginationTitle'] = get_bs_tag_by_class(common.soup['body_doc_bdWrap_bd_primary_primaryContent_draftCenterBreakdown_content_hd_paginationWrap_paginationSearch'], 'span', 'pagination search')
+        main.stock[str_pos] = common.soup['body_doc_bdWrap_bd_primary_primaryContent_draftCenterBreakdown_content_hd_paginationWrap_paginationSearch_paginationTitle'].split(' ')[-2]
 
 
 def main():
-    position = get_input_position()
-    get_players(position)
+    main.table_players = {}
+    common.soup = {}
+    main.stock = {}
+    year = time.ctime().split(' ')[-1]
+    with open (file_tmp, 'w') as tmp:
+        tmp.write(site)  
+    with open(file_tmp, 'r') as html:
+        main.soup = bs.BeautifulSoup(html.read(), 'lxml')
+    for position in Position:
+        get_players(position, offset, year)
 
 if __name__ == "__main__":
     main()
