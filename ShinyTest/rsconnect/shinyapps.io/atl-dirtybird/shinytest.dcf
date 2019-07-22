@@ -1,0 +1,10 @@
+name: shinytest
+title:
+username:
+account: atl-dirtybird
+server: shinyapps.io
+hostUrl: https://api.shinyapps.io/v1
+appId: 1045426
+bundleId: 2255316
+url: https://atl-dirtybird.shinyapps.io/shinytest/
+when: 1563814057.78783
